@@ -3,9 +3,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 
@@ -15,10 +13,11 @@ public class MaaS {
 
 
     //private static final String MASTER_EXCHANGE_NAME = "master_exchange";
-    private static final String MAAS_QUEUE_NAME = "maas_queue";
-    private static final String EXCHANGE_NAME = "aggr_exchange";
+    //private static final String MAAS_QUEUE_NAME = "maas_queue";
+    private static final String MASTER_EXCHANGE_NAME = "master_exchange";
+    private static final String ALTERNATE_EXCHANGE_NAME = "alternate_exchange";
 
-    static List<String> verList = new CopyOnWriteArrayList<>();
+    //static List<String> verList = new CopyOnWriteArrayList<>();
     static String activeVersion;
     static List<String> queueVersionsList = new ArrayList<>();
 
@@ -29,16 +28,24 @@ public class MaaS {
         factory.setHost("localhost");
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
-        channel.exchangeDeclare(EXCHANGE_NAME, "topic");
-        channel.queueDeclare(MAAS_QUEUE_NAME, false, false, false, null);
 
-        verList.add("v1");
-        activeVersion = "v1";
+        //channel.queueDeclare(MAAS_QUEUE_NAME, false, false, false, null);
+
+        Map<String, Object> args = new HashMap<>();
+        args.put("alternate-exchange", ALTERNATE_EXCHANGE_NAME);
+        channel.exchangeDeclare(MASTER_EXCHANGE_NAME, "topic", false, false, args);
+        channel.exchangeDeclare(ALTERNATE_EXCHANGE_NAME, "topic");
+
+        String startVersion = "v1";
         List<String> queueList = new ArrayList<>();
         queueList.add("q1");
         queueList.add("q2");
 
-        createQueuesForVersion(EXCHANGE_NAME, queueList, activeVersion, channel);
+        //verList.add("v1");
+        createQueuesForVersion(MASTER_EXCHANGE_NAME, queueList, startVersion, channel);
+        changeActiveVersion(ALTERNATE_EXCHANGE_NAME, startVersion, channel);
+
+
 
         System.out.println("Commands: promote v6, rollback v6, active v6");
         Scanner scanner = new Scanner(System.in);
@@ -54,27 +61,48 @@ public class MaaS {
             }
             String version = line.split(" ")[1];
             if (line.startsWith("promote")){
-                verList.add(version);
-                createQueuesForVersion(EXCHANGE_NAME, queueList, version, channel);
+                createQueuesForVersion(MASTER_EXCHANGE_NAME, queueList, version, channel);
             } else if (line.startsWith("rollback")) {
-                verList.remove(version);
                 deleteQueueForVersion(version, channel);
-//                System.out.println(String.format("Queues with version %s were deleted", version));
             } else if (line.startsWith("active")) {
-                activeVersion = version;
-                System.out.println(String.format("Active version now is '%s' now", activeVersion));
+                changeActiveVersion(ALTERNATE_EXCHANGE_NAME, version, channel);
             }
 
-            channel.basicPublish("", MAAS_QUEUE_NAME, null, line.getBytes());
+            //channel.basicPublish("", MAAS_QUEUE_NAME, null, line.getBytes());
         }
 
         for (String queue : queueVersionsList) {
             channel.queueDelete(queue);
             System.out.println(String.format("Queue with name %s was deleted", queue));
         }
-        channel.exchangeDelete(EXCHANGE_NAME);
+        channel.exchangeDelete(MASTER_EXCHANGE_NAME);
+        channel.exchangeDelete(ALTERNATE_EXCHANGE_NAME);
         channel.close();
         connection.close();
+    }
+
+    private static void changeActiveVersion(String alternateExchangeName, String version, Channel channel) throws IOException {
+
+
+        if (activeVersion != null) {
+            for (String queue: queueVersionsList){
+                if (queue.endsWith(activeVersion)) {
+                    String queueName = queue.substring(0, 2);
+                    channel.queueUnbind(queue, alternateExchangeName, "#." + queueName + ".#");
+                    System.out.println(String.format("Queue '%s' was unbinded to exchange '%s' with routing key '%s'", queue, alternateExchangeName, "#." + queueName + ".#"));
+                }
+            }
+        }
+
+        for (String queue: queueVersionsList){
+            if (queue.endsWith(version)) {
+                String queueName = queue.substring(0, 2);
+                channel.queueBind(queue, alternateExchangeName, "#." + queueName + ".#");
+                System.out.println(String.format("Queue '%s' was binded to exchange '%s' with routing key '%s'", queue, alternateExchangeName, "#." + queueName + ".#"));
+            }
+        }
+        activeVersion = version;
+        System.out.println(String.format("Active version is '%s' now", activeVersion));
     }
 
     private static void deleteQueueForVersion(String version, Channel channel) throws IOException {
@@ -92,11 +120,11 @@ public class MaaS {
             String queueVersionName = queue + "_" + version;
             queueVersionsList.add(queueVersionName);
             channel.queueDeclare(queueVersionName, false, false, false, null);
-            System.out.println(String.format("Queue with name %s was created", queueVersionName));
+            System.out.println(String.format("Queue '%s' was created", queueVersionName));
 
             String routingKey = "#." + queue + ".#.bg-" + version + ".#";
             channel.queueBind(queueVersionName, exchangeName, routingKey);
-            System.out.println(String.format("Queue with name %s was binded to exchange with name %s with routing key: %s", queueVersionName, EXCHANGE_NAME, routingKey));
+            System.out.println(String.format("Queue '%s' was binded to exchange '%s' with routing key: '%s'", queueVersionName, MASTER_EXCHANGE_NAME, routingKey));
 
         }
     }

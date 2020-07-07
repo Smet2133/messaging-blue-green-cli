@@ -5,13 +5,13 @@ import java.util.List;
 public class Utils {
     static String getAppVersion(String[] strings) {
         if (strings.length < 1)
-            return "v0";
+            return "default";
         return strings[0];
     }
 
-    public static String getRouteVersion(String[] strings, String appVersion) {
+    public static String  getRouteVersion(String[] strings, String appVersion) {
         if (strings.length < 2)
-            return appVersion;
+            return "default";
         return strings[1];
     }
 

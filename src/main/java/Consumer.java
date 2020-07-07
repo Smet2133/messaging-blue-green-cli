@@ -35,6 +35,7 @@ public class Consumer {
         String fullQueueName = queueName + "_" + appVersion;
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
             String message = new String(delivery.getBody(), "UTF-8");
+            System.out.println(String.format(" I'm Consumer of version '%s'", appVersion));
             System.out.println(" [x] Headers: " + delivery.getProperties().getHeaders());
             System.out.println(" [x] Received '" +
                     delivery.getEnvelope().getRoutingKey() + "':'" + message + "'");
