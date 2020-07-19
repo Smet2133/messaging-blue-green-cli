@@ -14,8 +14,8 @@ public class Producer {
     private static final String MAAS_QUEUE_NAME = "maas_queue";
     private static final String QUEUE1_NAME = "q1";
     private static final String QUEUE2_NAME = "q2";
-    private static final String ROUTING_INFO = "some.key.info";
-    private static final String MASTER_EXCHANGE_NAME = "master_exchange";
+    private static final String ROUTING_INFO = "q1";
+    private static final String EXCHANGE_NAME = "cpq-quote-modify";
     //private static final String VERSION = "v3";
 
     //static List<String> verList = new CopyOnWriteArrayList<>();
@@ -35,14 +35,17 @@ public class Producer {
         Channel channel = connection.createChannel();
 
         String appVersion = Utils.getAppVersion(argv);
-        String routeVersion = Utils.getRouteVersion(argv, appVersion);
+        String queueName = Utils.getQueueName(argv);
+        String routeVersion = Utils.getRouteVersion(argv);
         //setBasicVersions();
         //subscribeToMaasVersions(channel);
 
         System.out.println(String.format("Producer of version %s is intended to route message to queue of version %s", appVersion, routeVersion));
 
+        String routingKey = queueName;
         while (true){
-            publish(MASTER_EXCHANGE_NAME, ROUTING_INFO, "some-message", routeVersion, appVersion, channel);
+            //publish(MASTER_EXCHANGE_NAME, ROUTING_INFO, "some-message", routeVersion, appVersion, channel);
+            publish(EXCHANGE_NAME, routingKey, "some-message", routeVersion, appVersion, channel);
         }
 
         //channel.close();
@@ -68,12 +71,14 @@ public class Producer {
 
         Map<String, Object> headers = new HashMap();
         headers.put("App version", appVersion);
-        headers.put("Route version", routeVersion);
+        //headers.put("Route version", routeVersion);
+        headers.put("bg-version", routeVersion);
         AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
         builder.headers(headers);
         //while (true){
-        String routingKey = getRandomQueue(initialRoutingKey);
-        routingKey += ".bg-" + routeVersion;
+        //String routingKey = getRandomQueue(initialRoutingKey);
+        String routingKey = initialRoutingKey;
+        //routingKey += ".bg-" + routeVersion;
         //routingKey = initialRoutingKey + "." + QUEUE2_NAME + ".bg-" + VERSION;
 
         String messageToSend = message + "-" + Calendar.getInstance().getTime();

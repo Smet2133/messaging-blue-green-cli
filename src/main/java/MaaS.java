@@ -14,8 +14,8 @@ public class MaaS {
 
     //private static final String MASTER_EXCHANGE_NAME = "master_exchange";
     //private static final String MAAS_QUEUE_NAME = "maas_queue";
-    private static final String MASTER_EXCHANGE_NAME = "master_exchange";
-    private static final String ALTERNATE_EXCHANGE_NAME = "alternate_exchange";
+    private static final String MASTER_EXCHANGE_NAME = "exchange1";
+    private static final String ALTERNATE_EXCHANGE_NAME = "ae";
 
     //static List<String> verList = new CopyOnWriteArrayList<>();
     static String activeVersion;

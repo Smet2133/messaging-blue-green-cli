@@ -32,7 +32,8 @@ public class Consumer {
 
     static void consume(String queueName, String appVersion, Channel channel) throws Exception {
         System.out.println(" [*] Waiting for messages.");
-        String fullQueueName = queueName + "_" + appVersion;
+        String fullQueueName = queueName + "-" + appVersion;
+        System.out.println("fullqueuename: " + fullQueueName);
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
             String message = new String(delivery.getBody(), "UTF-8");
             System.out.println(String.format(" I'm Consumer of version '%s'", appVersion));
